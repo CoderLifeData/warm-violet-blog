@@ -70,14 +70,14 @@ export const posts: Post[] = [
         variant?: 'primary' | 'secondary';
       }
       
-      const Button: React.FC<ButtonProps> = ({ text, onClick, variant = 'primary' }) => {
+      const Button: React.FC&lt;ButtonProps&gt; = ({ text, onClick, variant = 'primary' }) => {
         return (
-          <button 
-            className={`btn btn-${variant}`} 
+          &lt;button 
+            className={\`btn btn-\${variant}\`} 
             onClick={onClick}
-          >
+          &gt;
             {text}
-          </button>
+          &lt;/button&gt;
         );
       };
       </code></pre>
@@ -90,7 +90,7 @@ export const posts: Post[] = [
         loading: boolean;
       }
       
-      const [state, setState] = useState<State>({
+      const [state, setState] = useState&lt;State&gt;({
         count: 0,
         loading: false
       });
@@ -117,7 +117,7 @@ export const posts: Post[] = [
       <p>React предоставляет несколько API для мемоизации: React.memo для функциональных компонентов, useMemo для вычисляемых значений и useCallback для функций.</p>
       <pre><code>
       const MemoizedComponent = React.memo(({ value }) => {
-        return <div>{value}</div>;
+        return &lt;div&gt;{value}&lt;/div&gt;;
       });
       
       // Внутри функционального компонента
@@ -131,18 +131,18 @@ export const posts: Post[] = [
       import { FixedSizeList } from 'react-window';
       
       const Row = ({ index, style }) => (
-        <div style={style}>Item {index}</div>
+        &lt;div style={style}&gt;Item {index}&lt;/div&gt;
       );
       
       const VirtualizedList = () => (
-        <FixedSizeList
+        &lt;FixedSizeList
           height={400}
           width={300}
           itemCount={1000}
           itemSize={35}
-        >
+        &gt;
           {Row}
-        </FixedSizeList>
+        &lt;/FixedSizeList&gt;
       );
       </code></pre>
       
@@ -153,9 +153,9 @@ export const posts: Post[] = [
       
       function App() {
         return (
-          <Suspense fallback={<div>Loading...</div>}>
-            <LazyComponent />
-          </Suspense>
+          &lt;Suspense fallback={&lt;div&gt;Loading...&lt;/div&gt;}&gt;
+            &lt;LazyComponent /&gt;
+          &lt;/Suspense&gt;
         );
       }
       </code></pre>
@@ -193,11 +193,11 @@ export const posts: Post[] = [
       <h2>Семантический HTML</h2>
       <p>Используйте правильные теги HTML для структурирования контента:</p>
       <pre><code>
-      &lt;!-- Неправильно -->
-      &lt;div class="header">Заголовок&lt;/div>
+      &lt;!-- Неправильно --&gt;
+      &lt;div class="header"&gt;Заголовок&lt;/div&gt;
       
-      &lt;!-- Правильно -->
-      &lt;h1>Заголовок&lt;/h1>
+      &lt;!-- Правильно --&gt;
+      &lt;h1&gt;Заголовок&lt;/h1&gt;
       </code></pre>
       
       <h2>Тестирование доступности</h2>
