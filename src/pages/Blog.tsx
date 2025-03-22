@@ -3,59 +3,78 @@ import { useState, useEffect } from 'react';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { PostCard } from '../components/ui/PostCard';
-import { getRecentPosts, Post } from '../data/posts';
-import { Search } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { getPosts, Post } from '../lib/db';
+
+// Unique categories extraction
+const getUniqueCategories = (posts: Post[]): string[] => {
+  const categories = posts.map(post => post.category);
+  return Array.from(new Set(categories));
+};
 
 const Blog = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [activeCategory, setActiveCategory] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
   useEffect(() => {
-    // Simulate data loading
-    const timer = setTimeout(() => {
-      const allPosts = getRecentPosts();
-      setPosts(allPosts);
-      setFilteredPosts(allPosts);
-      setIsLoading(false);
-    }, 500);
+    const loadPosts = async () => {
+      setIsLoading(true);
+      try {
+        const allPosts = await getPosts();
+        
+        // Sort by date (newest first)
+        allPosts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        setPosts(allPosts);
+        setFilteredPosts(allPosts);
+        
+        // Extract unique categories
+        const uniqueCategories = getUniqueCategories(allPosts);
+        setCategories(uniqueCategories);
+      } catch (error) {
+        console.error('Error loading posts:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    return () => clearTimeout(timer);
+    loadPosts();
   }, []);
   
   useEffect(() => {
-    if (posts.length === 0) return;
+    // Apply category and search filters
+    let results = posts;
     
-    let result = [...posts];
+    // Apply category filter
+    if (activeCategory !== 'all') {
+      results = results.filter(post => post.category === activeCategory);
+    }
     
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
+    // Apply search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      results = results.filter(
         post => 
-          post.title.toLowerCase().includes(query) || 
-          post.excerpt.toLowerCase().includes(query) ||
-          post.category.toLowerCase().includes(query)
+          post.title.toLowerCase().includes(term) ||
+          post.excerpt.toLowerCase().includes(term) ||
+          post.content.toLowerCase().includes(term) ||
+          post.category.toLowerCase().includes(term)
       );
     }
     
-    // Filter by category
-    if (selectedCategory) {
-      result = result.filter(post => post.category === selectedCategory);
-    }
-    
-    setFilteredPosts(result);
-  }, [searchQuery, selectedCategory, posts]);
-  
-  const getUniqueCategories = () => {
-    const categories = posts.map(post => post.category);
-    return ['Все', ...new Set(categories)];
-  };
+    setFilteredPosts(results);
+  }, [activeCategory, searchTerm, posts]);
   
   const handleCategoryChange = (category: string) => {
-    setSelectedCategory(category === 'Все' ? null : category);
+    setActiveCategory(category);
+  };
+  
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
   };
   
   return (
@@ -63,112 +82,122 @@ const Blog = () => {
       <Navbar />
       
       <main className="flex-grow mt-24 page-transition">
-        {/* Header */}
+        {/* Blog Header */}
         <section className="py-12 md:py-16">
           <div className="layout-container">
-            <div className="max-w-3xl mx-auto text-center">
-              <h1 className="heading-xl mb-4">Блог</h1>
+            <div className="max-w-2xl mx-auto text-center">
+              <h1 className="heading-xl mb-6">Блог</h1>
               <p className="text-xl text-gray-300 mb-8">
                 Статьи о веб-разработке, дизайне и технологиях
               </p>
-            </div>
-          </div>
-        </section>
-        
-        {/* Search and Filters */}
-        <section className="pb-12">
-          <div className="layout-container">
-            <div className="glass-card rounded-2xl p-6">
-              <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
-                <div className="relative flex-grow">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Поиск статей..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-secondary/50 border border-white/10 rounded-lg focus:ring-2 focus:ring-accent/20 focus:border-accent focus:outline-none transition-colors"
-                  />
-                </div>
-                
-                <div className="flex flex-wrap gap-2">
-                  {getUniqueCategories().map((category) => (
-                    <button
-                      key={category}
-                      onClick={() => handleCategoryChange(category)}
-                      className={`
-                        px-4 py-2 rounded-full text-sm border transition-colors
-                        ${selectedCategory === category || (category === 'Все' && !selectedCategory)
-                          ? 'bg-accent text-white border-accent'
-                          : 'border-white/20 hover:border-accent/50 hover:text-accent'
-                        }
-                      `}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-        
-        {/* Blog Posts */}
-        <section className="py-12">
-          <div className="layout-container">
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {[1, 2, 3, 4, 5, 6].map((_, index) => (
-                  <div key={index} className="glass-card rounded-2xl animate-pulse-slow h-[480px]">
-                    <div className="h-48 bg-gray-800/50 rounded-t-2xl"></div>
-                    <div className="p-6">
-                      <div className="h-4 bg-gray-800/50 rounded mb-4 w-1/4"></div>
-                      <div className="h-8 bg-gray-800/50 rounded mb-4"></div>
-                      <div className="h-4 bg-gray-800/50 rounded mb-2 w-full"></div>
-                      <div className="h-4 bg-gray-800/50 rounded mb-2 w-5/6"></div>
-                      <div className="h-4 bg-gray-800/50 rounded mb-4 w-4/6"></div>
-                      <div className="mt-8 flex items-center">
-                        <div className="h-12 w-12 rounded-full bg-gray-800/50 mr-3"></div>
-                        <div>
-                          <div className="h-4 bg-gray-800/50 rounded mb-2 w-24"></div>
-                          <div className="h-3 bg-gray-800/50 rounded w-32"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : filteredPosts.length === 0 ? (
-              <div className="text-center py-16">
-                <h3 className="heading-md mb-4">Статьи не найдены</h3>
-                <p className="text-gray-400 mb-8">
-                  Попробуйте изменить параметры поиска или категорию
-                </p>
-                <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSelectedCategory(null);
-                  }}
-                  className="px-6 py-2.5 rounded-full bg-accent hover:bg-accent/90 transition-colors duration-300"
+              
+              {/* Search Input */}
+              <div className="relative max-w-md mx-auto mb-8">
+                <input
+                  type="text"
+                  placeholder="Поиск статей..."
+                  value={searchTerm}
+                  onChange={handleSearch}
+                  className="w-full px-4 py-3 pl-10 rounded-full bg-white/5 border border-white/10 focus:ring-2 focus:ring-accent/20 focus:border-accent focus:outline-none transition-colors"
+                />
+                <svg 
+                  className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24" 
+                  xmlns="http://www.w3.org/2000/svg"
                 >
-                  Сбросить фильтры
-                </button>
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth="2" 
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredPosts.map((post, index) => (
-                  <div 
-                    key={post.id} 
-                    className="animate-fade-in"
-                    style={{ animationDelay: `${0.05 * (index % 6)}s` }}
-                  >
-                    <PostCard post={post} />
+            </div>
+          </div>
+        </section>
+        
+        {/* Categories */}
+        <section className="pb-8">
+          <div className="layout-container">
+            <Tabs defaultValue="all" className="w-full" onValueChange={handleCategoryChange}>
+              <div className="overflow-x-auto pb-2">
+                <TabsList className="bg-white/5 border border-white/10 p-1">
+                  <TabsTrigger value="all" className="rounded-full">
+                    Все статьи
+                  </TabsTrigger>
+                  {categories.map(category => (
+                    <TabsTrigger key={category} value={category} className="rounded-full">
+                      {category}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
+              
+              <TabsContent value="all">
+                <div className="mt-8">
+                  {isLoading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {[1, 2, 3, 4].map((_, index) => (
+                        <div key={index} className="glass-card rounded-2xl animate-pulse-slow h-[480px]">
+                          <div className="h-48 bg-gray-800/50 rounded-t-2xl"></div>
+                          <div className="p-6">
+                            <div className="h-4 bg-gray-800/50 rounded mb-4 w-1/4"></div>
+                            <div className="h-8 bg-gray-800/50 rounded mb-4"></div>
+                            <div className="h-4 bg-gray-800/50 rounded mb-2 w-full"></div>
+                            <div className="h-4 bg-gray-800/50 rounded mb-2 w-5/6"></div>
+                            <div className="h-4 bg-gray-800/50 rounded mb-4 w-4/6"></div>
+                            <div className="mt-8 flex items-center">
+                              <div className="h-12 w-12 rounded-full bg-gray-800/50 mr-3"></div>
+                              <div>
+                                <div className="h-4 bg-gray-800/50 rounded mb-2 w-24"></div>
+                                <div className="h-3 bg-gray-800/50 rounded w-32"></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : filteredPosts.length === 0 ? (
+                    <div className="text-center py-12">
+                      <p className="text-xl mb-4">Статьи не найдены</p>
+                      <p className="text-gray-400">Попробуйте изменить параметры поиска или выбрать другую категорию</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {filteredPosts.map((post) => (
+                        <div key={post.id}>
+                          <PostCard post={post} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+              
+              {categories.map(category => (
+                <TabsContent key={category} value={category}>
+                  <div className="mt-8">
+                    {filteredPosts.length === 0 ? (
+                      <div className="text-center py-12">
+                        <p className="text-xl mb-4">Статьи не найдены</p>
+                        <p className="text-gray-400">В категории {category} нет статей, соответствующих критериям поиска</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {filteredPosts.map((post) => (
+                          <div key={post.id}>
+                            <PostCard post={post} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
+                </TabsContent>
+              ))}
+            </Tabs>
           </div>
         </section>
       </main>

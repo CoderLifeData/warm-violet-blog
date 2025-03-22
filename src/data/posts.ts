@@ -1,4 +1,7 @@
 
+// This file now serves as a data model and initial data source
+// Actual data operations are handled by the database service
+
 export interface Author {
   id: string;
   name: string;
@@ -24,6 +27,7 @@ export const author: Author = {
   avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80'
 };
 
+// Initial posts data to seed the database
 export const posts: Post[] = [
   {
     id: 'post-1',
@@ -286,6 +290,9 @@ export const posts: Post[] = [
     comments: 6
   }
 ];
+
+// These functions now serve as fallbacks or for SSR/initial rendering
+// The actual data operations are now in src/lib/db.ts
 
 export const getFeaturedPosts = (): Post[] => {
   return posts.slice(0, 3);

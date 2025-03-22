@@ -5,20 +5,27 @@ import { ChevronRight } from 'lucide-react';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { PostCard } from '../components/ui/PostCard';
-import { getFeaturedPosts, Post } from '../data/posts';
+import { Post } from '../data/posts';
+import { getFeaturedPosts } from '../lib/db';
 
 const Index = () => {
   const [featuredPosts, setFeaturedPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
-    // Simulate data loading
-    const timer = setTimeout(() => {
-      setFeaturedPosts(getFeaturedPosts());
-      setIsLoading(false);
-    }, 500);
+    const loadFeaturedPosts = async () => {
+      setIsLoading(true);
+      try {
+        const posts = await getFeaturedPosts();
+        setFeaturedPosts(posts);
+      } catch (error) {
+        console.error('Error loading featured posts:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    return () => clearTimeout(timer);
+    loadFeaturedPosts();
   }, []);
   
   return (
@@ -87,15 +94,21 @@ const Index = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {featuredPosts.map((post, index) => (
-                  <div 
-                    key={post.id} 
-                    className="animate-slide-in-bottom"
-                    style={{ animationDelay: `${0.1 * (index + 1)}s` }}
-                  >
-                    <PostCard post={post} />
+                {featuredPosts.length === 0 ? (
+                  <div className="col-span-full text-center py-12">
+                    <p className="text-gray-400">Нет избранных статей. Вы можете добавить их в панели администратора.</p>
                   </div>
-                ))}
+                ) : (
+                  featuredPosts.map((post, index) => (
+                    <div 
+                      key={post.id} 
+                      className="animate-slide-in-bottom"
+                      style={{ animationDelay: `${0.1 * (index + 1)}s` }}
+                    >
+                      <PostCard post={post} />
+                    </div>
+                  ))
+                )}
               </div>
             )}
           </div>

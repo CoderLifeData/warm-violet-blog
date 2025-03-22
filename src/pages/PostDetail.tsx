@@ -1,18 +1,26 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { PostCard } from '../components/ui/PostCard';
-import { Heart, MessageSquare, Share2, ArrowLeft, Calendar, ChevronRight, User } from 'lucide-react';
-import { getPostById, getRelatedPosts, Post } from '../data/posts';
+import { Heart, MessageSquare, Share2, ArrowLeft, Calendar, ChevronRight, User, Trash2 } from 'lucide-react';
+import { Post } from '../data/posts';
 import { useToast } from '../hooks/use-toast';
+import { 
+  getPostById, 
+  getRelatedPosts, 
+  getCommentsByPostId, 
+  addComment, 
+  deleteComment,
+  hasUserLiked,
+  addLike, 
+  removeLike,
+  Comment as DbComment
+} from '../lib/db';
 
-interface Comment {
-  id: string;
+interface CommentFormData {
   author: string;
   content: string;
-  date: Date;
 }
 
 const PostDetail = () => {
@@ -24,15 +32,13 @@ const PostDetail = () => {
   const [relatedPosts, setRelatedPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
-  const [commentText, setCommentText] = useState('');
-  const [authorName, setAuthorName] = useState('');
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentForm, setCommentForm] = useState<CommentFormData>({
+    author: '',
+    content: ''
+  });
+  const [comments, setComments] = useState<DbComment[]>([]);
   
-  useEffect(() => {
-    // Scroll to top when post changes
-    window.scrollTo(0, 0);
-    
+  const loadPostData = async () => {
     if (!id) {
       navigate('/blog');
       return;
@@ -40,59 +46,83 @@ const PostDetail = () => {
     
     setIsLoading(true);
     
-    // Simulate data loading
-    const timer = setTimeout(() => {
-      const foundPost = getPostById(id);
+    try {
+      const postData = await getPostById(id);
       
-      if (foundPost) {
-        setPost(foundPost);
-        setLikeCount(foundPost.likes);
+      if (postData) {
+        setPost(postData);
         
-        // Get related posts
-        const related = getRelatedPosts(id, foundPost.category);
+        const postComments = await getCommentsByPostId(id);
+        setComments(postComments);
+        
+        const userLiked = await hasUserLiked(id);
+        setLiked(userLiked);
+        
+        const related = await getRelatedPosts(id, postData.category);
         setRelatedPosts(related);
         
-        // Load comments from localStorage or use empty array
-        const savedComments = localStorage.getItem(`post_${id}_comments`);
-        if (savedComments) {
-          try {
-            const parsedComments = JSON.parse(savedComments);
-            setComments(parsedComments.map((comment: any) => ({
-              ...comment,
-              date: new Date(comment.date)
-            })));
-          } catch (error) {
-            console.error('Error parsing comments:', error);
-            setComments([]);
-          }
+        const savedAuthor = localStorage.getItem('comment_author_name');
+        if (savedAuthor) {
+          setCommentForm(prev => ({ ...prev, author: savedAuthor }));
         }
-        
-        // Check if post was liked before
-        const wasLiked = localStorage.getItem(`post_${id}_liked`) === 'true';
-        setLiked(wasLiked);
       } else {
+        toast({
+          title: "Статья не найдена",
+          description: "Запрашиваемая статья не существует или была удалена",
+          variant: "destructive",
+        });
         navigate('/blog');
       }
-      
+    } catch (error) {
+      console.error('Error loading post data:', error);
+      toast({
+        title: "Ошибка загрузки",
+        description: "Не удалось загрузить данные статьи",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, [id, navigate]);
+    }
+  };
   
-  const handleLike = () => {
-    const newLiked = !liked;
-    setLiked(newLiked);
-    setLikeCount(prev => newLiked ? prev + 1 : prev - 1);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    loadPostData();
+  }, [id]);
+  
+  const handleLike = async () => {
+    if (!post || !id) return;
     
-    // Save like state to localStorage
-    localStorage.setItem(`post_${id}_liked`, newLiked.toString());
-    
-    toast({
-      title: newLiked ? "Вы поставили лайк!" : "Лайк отменен",
-      description: newLiked ? "Спасибо за вашу оценку!" : "Вы отменили лайк статьи",
-      duration: 2000,
-    });
+    try {
+      if (liked) {
+        await removeLike(id);
+        setLiked(false);
+        setPost(prev => prev ? { ...prev, likes: Math.max(0, prev.likes - 1) } : null);
+        
+        toast({
+          title: "Лайк отменен",
+          description: "Вы отменили лайк статьи",
+          duration: 2000,
+        });
+      } else {
+        await addLike(id);
+        setLiked(true);
+        setPost(prev => prev ? { ...prev, likes: prev.likes + 1 } : null);
+        
+        toast({
+          title: "Вы поставили лайк!",
+          description: "Спасибо за вашу оценку!",
+          duration: 2000,
+        });
+      }
+    } catch (error) {
+      console.error('Error updating like:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обновить статус лайка",
+        variant: "destructive",
+      });
+    }
   };
   
   const handleShare = () => {
@@ -105,10 +135,12 @@ const PostDetail = () => {
     });
   };
   
-  const handleSubmitComment = (e: React.FormEvent) => {
+  const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!commentText.trim()) {
+    if (!post || !id) return;
+    
+    if (!commentForm.content.trim()) {
       toast({
         title: "Ошибка",
         description: "Пожалуйста, введите текст комментария",
@@ -117,7 +149,7 @@ const PostDetail = () => {
       return;
     }
     
-    if (!authorName.trim()) {
+    if (!commentForm.author.trim()) {
       toast({
         title: "Ошибка",
         description: "Пожалуйста, введите ваше имя",
@@ -126,28 +158,68 @@ const PostDetail = () => {
       return;
     }
     
-    // Create new comment
-    const newComment: Comment = {
-      id: `comment-${Date.now()}`,
-      author: authorName,
-      content: commentText,
-      date: new Date()
-    };
+    try {
+      localStorage.setItem('comment_author_name', commentForm.author);
+      
+      const newComment: DbComment = {
+        id: `comment-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        postId: id,
+        author: commentForm.author,
+        content: commentForm.content,
+        date: new Date().toISOString()
+      };
+      
+      const success = await addComment(newComment);
+      
+      if (success) {
+        setComments(prev => [newComment, ...prev]);
+        setPost(prev => prev ? { ...prev, comments: prev.comments + 1 } : null);
+        setCommentForm(prev => ({ ...prev, content: '' }));
+        
+        toast({
+          title: "Комментарий добавлен",
+          description: "Ваш комментарий успешно опубликован",
+        });
+      } else {
+        throw new Error('Failed to add comment');
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось добавить комментарий",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleDeleteComment = async (commentId: string) => {
+    if (!id) return;
     
-    // Add comment to state
-    const updatedComments = [...comments, newComment];
-    setComments(updatedComments);
-    
-    // Save to localStorage
-    localStorage.setItem(`post_${id}_comments`, JSON.stringify(updatedComments));
-    
-    // Reset form
-    setCommentText('');
-    
-    toast({
-      title: "Комментарий добавлен",
-      description: "Ваш комментарий успешно опубликован",
-    });
+    if (window.confirm('Вы уверены, что хотите удалить этот комментарий?')) {
+      try {
+        const success = await deleteComment(commentId, id);
+        
+        if (success) {
+          setComments(prev => prev.filter(comment => comment.id !== commentId));
+          setPost(prev => prev ? { ...prev, comments: Math.max(0, prev.comments - 1) } : null);
+          
+          toast({
+            title: "Комментарий удален",
+            description: "Комментарий был успешно удален",
+          });
+        } else {
+          throw new Error('Failed to delete comment');
+        }
+      } catch (error) {
+        console.error('Error deleting comment:', error);
+        toast({
+          title: "Ошибка",
+          description: "Не удалось удалить комментарий",
+          variant: "destructive",
+        });
+      }
+    }
   };
   
   if (isLoading) {
@@ -174,7 +246,6 @@ const PostDetail = () => {
       <Navbar />
       
       <main className="flex-grow mt-24 page-transition">
-        {/* Post Header */}
         <header className="py-12 md:py-16">
           <div className="layout-container">
             <div className="max-w-4xl mx-auto">
@@ -222,24 +293,20 @@ const PostDetail = () => {
           </div>
         </header>
         
-        {/* Post Cover Image */}
-        {post.coverImage && (
-          <div className="mb-12">
-            <div className="layout-container">
-              <div className="max-w-4xl mx-auto">
-                <div className="aspect-[16/9] rounded-2xl overflow-hidden">
-                  <img 
-                    src={post.coverImage} 
-                    alt={post.title} 
-                    className="w-full h-full object-cover object-center"
-                  />
-                </div>
+        <div className="mb-12">
+          <div className="layout-container">
+            <div className="max-w-4xl mx-auto">
+              <div className="aspect-[16/9] rounded-2xl overflow-hidden">
+                <img 
+                  src={post.coverImage} 
+                  alt={post.title} 
+                  className="w-full h-full object-cover object-center"
+                />
               </div>
             </div>
           </div>
-        )}
+        </div>
         
-        {/* Post Content */}
         <section className="py-8">
           <div className="layout-container">
             <div className="max-w-4xl mx-auto">
@@ -248,7 +315,6 @@ const PostDetail = () => {
                   <div dangerouslySetInnerHTML={{ __html: post.content }} />
                 </article>
                 
-                {/* Post Actions */}
                 <div className="mt-10 pt-8 border-t border-white/10 flex flex-wrap gap-4">
                   <button 
                     onClick={handleLike}
@@ -258,7 +324,7 @@ const PostDetail = () => {
                     `}
                   >
                     <Heart className={`mr-2 h-5 w-5 ${liked ? 'fill-accent' : ''}`} />
-                    <span>{likeCount}</span>
+                    <span>{post.likes}</span>
                   </button>
                   
                   <button 
@@ -274,7 +340,6 @@ const PostDetail = () => {
           </div>
         </section>
         
-        {/* Comments Section */}
         <section className="py-12">
           <div className="layout-container">
             <div className="max-w-4xl mx-auto">
@@ -287,8 +352,8 @@ const PostDetail = () => {
                     <input
                       id="authorName"
                       type="text"
-                      value={authorName}
-                      onChange={(e) => setAuthorName(e.target.value)}
+                      value={commentForm.author}
+                      onChange={(e) => setCommentForm(prev => ({ ...prev, author: e.target.value }))}
                       className="w-full px-4 py-3 rounded-lg bg-secondary/50 border border-white/10 focus:ring-2 focus:ring-accent/20 focus:border-accent focus:outline-none transition-colors"
                       placeholder="Введите ваше имя"
                     />
@@ -297,8 +362,8 @@ const PostDetail = () => {
                     <label htmlFor="commentText" className="block text-sm font-medium mb-2">Ваш комментарий</label>
                     <textarea
                       id="commentText"
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
+                      value={commentForm.content}
+                      onChange={(e) => setCommentForm(prev => ({ ...prev, content: e.target.value }))}
                       className="w-full px-4 py-3 rounded-lg bg-secondary/50 border border-white/10 focus:ring-2 focus:ring-accent/20 focus:border-accent focus:outline-none transition-colors resize-none"
                       placeholder="Оставьте свой комментарий..."
                       rows={4}
@@ -317,29 +382,38 @@ const PostDetail = () => {
                 <div className="space-y-6">
                   {comments.length === 0 ? (
                     <div className="text-gray-400 text-center py-4">
-                      <p>Пока нет комментариев. Будьте первым, кто оставит комментарий!</p>
+                      <p>Пока не�� комментариев. Будьте первым, кто оставит комментарий!</p>
                     </div>
                   ) : (
                     comments.map((comment) => (
                       <div key={comment.id} className="p-4 bg-white/5 rounded-lg">
-                        <div className="flex items-center mb-2">
-                          <div className="flex-shrink-0 mr-3">
-                            <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
-                              <User size={16} className="text-accent" />
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 mr-3">
+                              <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                                <User size={16} className="text-accent" />
+                              </div>
+                            </div>
+                            <div>
+                              <p className="font-medium">{comment.author}</p>
+                              <p className="text-xs text-gray-400">
+                                {new Date(comment.date).toLocaleDateString('ru-RU', {
+                                  day: 'numeric',
+                                  month: 'long',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </p>
                             </div>
                           </div>
-                          <div>
-                            <p className="font-medium">{comment.author}</p>
-                            <p className="text-xs text-gray-400">
-                              {comment.date.toLocaleDateString('ru-RU', {
-                                day: 'numeric',
-                                month: 'long',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </p>
-                          </div>
+                          <button
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className="p-1 hover:bg-red-500/10 text-gray-400 hover:text-red-500 rounded-full transition-colors"
+                            title="Удалить комментарий"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                         <p className="text-gray-300 pl-11">{comment.content}</p>
                       </div>
@@ -351,7 +425,6 @@ const PostDetail = () => {
           </div>
         </section>
         
-        {/* Related Posts */}
         {relatedPosts.length > 0 && (
           <section className="py-12 bg-black/20">
             <div className="layout-container">

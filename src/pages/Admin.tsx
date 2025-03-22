@@ -3,15 +3,25 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
-import { Edit, Plus, Trash2, LogOut, Eye } from 'lucide-react';
-import { posts as initialPosts, Post, author } from '../data/posts';
+import { Edit, Plus, Trash2, LogOut, Eye, Star } from 'lucide-react';
+import { Post, author } from '../data/posts';
 import { useToast } from '../hooks/use-toast';
+import { 
+  getPosts, 
+  addPost, 
+  updatePost, 
+  deletePost,
+  getFeaturedPosts,
+  updateFeaturedPosts
+} from '../lib/db';
 
 const Admin = () => {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [featuredPostIds, setFeaturedPostIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isShowingForm, setIsShowingForm] = useState(false);
+  const [isShowingFeaturedForm, setIsShowingFeaturedForm] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const { toast } = useToast();
   
@@ -26,6 +36,29 @@ const Admin = () => {
   
   const navigate = useNavigate();
   
+  // Load posts from database
+  const loadPosts = async () => {
+    setIsLoading(true);
+    try {
+      const allPosts = await getPosts();
+      setPosts(allPosts);
+      
+      // Load featured posts
+      const featured = await getFeaturedPosts();
+      setFeaturedPostIds(featured.map(post => post.id));
+      
+    } catch (error) {
+      console.error('Error loading posts:', error);
+      toast({
+        title: "Ошибка загрузки",
+        description: "Не удалось загрузить статьи",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   useEffect(() => {
     // Check if user is authenticated
     const checkAuth = () => {
@@ -35,15 +68,7 @@ const Admin = () => {
       if (!isLoggedIn) {
         navigate('/login');
       } else {
-        // Load posts from localStorage or use initial posts
-        const savedPosts = localStorage.getItem('blog_posts');
-        if (savedPosts) {
-          setPosts(JSON.parse(savedPosts));
-        } else {
-          setPosts(initialPosts);
-          localStorage.setItem('blog_posts', JSON.stringify(initialPosts));
-        }
-        setIsLoading(false);
+        loadPosts();
       }
     };
     
@@ -76,16 +101,37 @@ const Admin = () => {
     navigate('/login');
   };
   
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Вы уверены, что хотите удалить эту статью?')) {
-      const updatedPosts = posts.filter(post => post.id !== id);
-      setPosts(updatedPosts);
-      localStorage.setItem('blog_posts', JSON.stringify(updatedPosts));
-      
-      toast({
-        title: "Статья удалена",
-        description: "Статья была успешно удалена",
-      });
+      try {
+        const success = await deletePost(id);
+        
+        if (success) {
+          // Update local posts state
+          setPosts(posts.filter(post => post.id !== id));
+          
+          // Update featured posts if needed
+          if (featuredPostIds.includes(id)) {
+            const newFeatured = featuredPostIds.filter(postId => postId !== id);
+            setFeaturedPostIds(newFeatured);
+            await updateFeaturedPosts(newFeatured);
+          }
+          
+          toast({
+            title: "Статья удалена",
+            description: "Статья была успешно удалена",
+          });
+        } else {
+          throw new Error('Failed to delete post');
+        }
+      } catch (error) {
+        console.error('Error deleting post:', error);
+        toast({
+          title: "Ошибка",
+          description: "Не удалось удалить статью",
+          variant: "destructive",
+        });
+      }
     }
   };
   
@@ -112,7 +158,7 @@ const Admin = () => {
     }
   };
   
-  const handleSubmitPost = (e: React.FormEvent) => {
+  const handleSubmitPost = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!title.trim() || !excerpt.trim() || !content.trim() || !category.trim()) {
@@ -124,66 +170,135 @@ const Admin = () => {
       return;
     }
     
-    if (editingPost) {
-      // Update existing post
-      const updatedPosts = posts.map(post => 
-        post.id === editingPost.id 
-          ? { 
-              ...post, 
-              title, 
-              excerpt, 
-              content, 
-              category, 
-              coverImage: coverImage || undefined 
-            } 
-          : post
-      );
-      
-      setPosts(updatedPosts);
-      localStorage.setItem('blog_posts', JSON.stringify(updatedPosts));
-      
-      toast({
-        title: "Статья обновлена",
-        description: "Статья была успешно обновлена",
-      });
-    } else {
-      // Create new post
-      const newPost: Post = {
-        id: `post-${Date.now()}`,
-        title,
-        excerpt,
-        content,
-        category,
-        author,
-        date: new Date().toISOString(),
-        likes: 0,
-        comments: 0,
-      };
-      
-      if (coverImage) {
-        newPost.coverImage = coverImage;
+    try {
+      if (editingPost) {
+        // Update existing post
+        const updatedPost: Post = { 
+          ...editingPost, 
+          title, 
+          excerpt, 
+          content, 
+          category, 
+          coverImage: coverImage || undefined 
+        };
+        
+        const success = await updatePost(updatedPost);
+        
+        if (success) {
+          // Update local posts state
+          setPosts(posts.map(post => 
+            post.id === editingPost.id ? updatedPost : post
+          ));
+          
+          toast({
+            title: "Статья обновлена",
+            description: "Статья была успешно обновлена",
+          });
+        } else {
+          throw new Error('Failed to update post');
+        }
+      } else {
+        // Create new post
+        const newPost: Post = {
+          id: `post-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          title,
+          excerpt,
+          content,
+          category,
+          author,
+          date: new Date().toISOString(),
+          likes: 0,
+          comments: 0,
+        };
+        
+        if (coverImage) {
+          newPost.coverImage = coverImage;
+        }
+        
+        const success = await addPost(newPost);
+        
+        if (success) {
+          // Update local posts state
+          setPosts([...posts, newPost]);
+          
+          toast({
+            title: "Статья создана",
+            description: "Новая статья была успешно создана",
+          });
+        } else {
+          throw new Error('Failed to add post');
+        }
       }
       
-      const updatedPosts = [...posts, newPost];
-      setPosts(updatedPosts);
-      localStorage.setItem('blog_posts', JSON.stringify(updatedPosts));
-      
+      // Reset form and state
+      resetForm();
+      setEditingPost(null);
+      setIsShowingForm(false);
+    } catch (error) {
+      console.error('Error saving post:', error);
       toast({
-        title: "Статья создана",
-        description: "Новая статья была успешно создана",
+        title: "Ошибка",
+        description: "Не удалось сохранить статью",
+        variant: "destructive",
       });
     }
-    
-    // Reset form and state
-    resetForm();
-    setEditingPost(null);
-    setIsShowingForm(false);
   };
   
   const handleCancelForm = () => {
     setIsShowingForm(false);
     setEditingPost(null);
     resetForm();
+  };
+  
+  const handleToggleFeatured = (postId: string) => {
+    const newFeatured = [...featuredPostIds];
+    
+    if (newFeatured.includes(postId)) {
+      // Remove from featured
+      const index = newFeatured.indexOf(postId);
+      newFeatured.splice(index, 1);
+    } else {
+      // Add to featured (max 3)
+      if (newFeatured.length < 3) {
+        newFeatured.push(postId);
+      } else {
+        toast({
+          title: "Превышено ограничение",
+          description: "Можно выбрать максимум 3 избранные статьи",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
+    setFeaturedPostIds(newFeatured);
+  };
+  
+  const handleSaveFeatured = async () => {
+    try {
+      const success = await updateFeaturedPosts(featuredPostIds);
+      
+      if (success) {
+        toast({
+          title: "Избранные статьи обновлены",
+          description: "Список избранных статей успешно обновлен",
+        });
+        setIsShowingFeaturedForm(false);
+      } else {
+        throw new Error('Failed to update featured posts');
+      }
+    } catch (error) {
+      console.error('Error updating featured posts:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обновить избранные статьи",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleManageFeatured = () => {
+    setIsShowingFeaturedForm(true);
   };
   
   if (!isAuthenticated) {
@@ -216,6 +331,14 @@ const Admin = () => {
                 </button>
                 
                 <button
+                  onClick={handleManageFeatured}
+                  className="inline-flex items-center px-4 py-2 rounded-lg border border-accent text-accent hover:bg-accent/10 transition-colors duration-300"
+                >
+                  <Star className="mr-2 h-5 w-5" />
+                  Избранные статьи
+                </button>
+                
+                <button
                   onClick={handleLogout}
                   className="inline-flex items-center px-4 py-2 rounded-lg border border-white/20 hover:bg-white/5 transition-colors duration-300"
                 >
@@ -226,6 +349,60 @@ const Admin = () => {
             </div>
           </div>
         </section>
+        
+        {/* Featured Posts Form */}
+        {isShowingFeaturedForm && (
+          <section className="py-8" ref={formRef}>
+            <div className="layout-container">
+              <div className="glass-card rounded-2xl p-6 md:p-10">
+                <h2 className="heading-md mb-6">Управление избранными статьями</h2>
+                <p className="text-gray-300 mb-6">
+                  Выберите до 3 статей, которые будут отображаться на главной странице в разделе "Избранные статьи".
+                </p>
+                
+                <div className="space-y-4 mb-8">
+                  {posts.map((post) => (
+                    <div key={post.id} className="flex items-center p-4 bg-white/5 rounded-lg">
+                      <button
+                        onClick={() => handleToggleFeatured(post.id)}
+                        className={`p-2 rounded-full mr-4 transition-colors ${
+                          featuredPostIds.includes(post.id) 
+                            ? 'bg-accent/20 text-accent' 
+                            : 'bg-white/10 text-gray-300'
+                        }`}
+                      >
+                        <Star className={`h-5 w-5 ${featuredPostIds.includes(post.id) ? 'fill-accent' : ''}`} />
+                      </button>
+                      
+                      <div className="flex-grow">
+                        <h3 className="font-medium">{post.title}</h3>
+                        <p className="text-sm text-gray-400">
+                          {new Date(post.date).toLocaleDateString('ru-RU')} | {post.category}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="flex justify-end space-x-4">
+                  <button
+                    onClick={() => setIsShowingFeaturedForm(false)}
+                    className="px-6 py-2.5 rounded-lg border border-white/20 hover:bg-white/5 transition-colors duration-300"
+                  >
+                    Отмена
+                  </button>
+                  
+                  <button
+                    onClick={handleSaveFeatured}
+                    className="px-6 py-2.5 rounded-lg bg-accent hover:bg-accent/90 transition-colors duration-300"
+                  >
+                    Сохранить изменения
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
         
         {/* Post Form */}
         {isShowingForm && (
@@ -355,6 +532,7 @@ const Admin = () => {
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">Дата</th>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">Комментарии</th>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">Лайки</th>
+                        <th className="px-6 py-4 text-center text-sm font-medium text-gray-300">Избранное</th>
                         <th className="px-6 py-4 text-right text-sm font-medium text-gray-300">Действия</th>
                       </tr>
                     </thead>
@@ -388,6 +566,17 @@ const Admin = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                             {post.likes}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                            <div className="flex justify-center">
+                              <Star 
+                                className={`h-5 w-5 ${
+                                  featuredPostIds.includes(post.id) 
+                                    ? 'fill-accent text-accent' 
+                                    : 'text-gray-500'
+                                }`} 
+                              />
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                             <div className="flex justify-end space-x-2">

@@ -1,117 +1,78 @@
 
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, MessageSquare, Share2 } from 'lucide-react';
+import { Heart, MessageSquare, Calendar } from 'lucide-react';
 import { Post } from '../../data/posts';
-import { useToast } from "../../hooks/use-toast";
 
 interface PostCardProps {
   post: Post;
 }
 
 export const PostCard = ({ post }: PostCardProps) => {
-  const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(post.likes);
-  const { toast } = useToast();
-  
-  const handleLike = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setLiked(!liked);
-    setLikeCount(prev => liked ? prev - 1 : prev + 1);
-    
-    // In a real app, this would be an API call to update likes in the database
-    toast({
-      title: liked ? "Лайк отменен" : "Вы поставили лайк!",
-      description: liked ? "Вы отменили лайк статьи" : "Спасибо за вашу оценку!",
-      duration: 2000,
-    });
-  };
-  
-  const handleShare = (e: React.MouseEvent) => {
-    e.preventDefault();
-    // Implementation would depend on sharing functionality
-    navigator.clipboard.writeText(window.location.origin + '/blog/' + post.id);
-    
-    toast({
-      title: "Ссылка скопирована",
-      description: "Ссылка на статью скопирована в буфер обмена",
-      duration: 2000,
-    });
-  };
+  // Format date
+  const formattedDate = new Date(post.date).toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
   
   return (
-    <Link 
-      to={`/blog/${post.id}`} 
-      className="block"
-    >
-      <article className="glass-card rounded-2xl overflow-hidden card-hover h-full flex flex-col">
+    <div className="glass-card rounded-2xl overflow-hidden hover-scale card-hover">
+      <Link to={`/blog/${post.id}`}>
         {post.coverImage && (
-          <div className="aspect-video overflow-hidden">
+          <div className="aspect-[16/9] overflow-hidden">
             <img 
               src={post.coverImage} 
               alt={post.title} 
-              className="w-full h-full object-cover object-center transition-transform duration-500 hover:scale-105"
-              loading="lazy"
+              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
             />
           </div>
         )}
         
-        <div className="p-6 flex flex-col flex-grow">
-          <div className="mb-2">
+        <div className="p-6">
+          <div className="mb-3">
             <span className="inline-block px-3 py-1 rounded-full text-xs bg-accent/20 text-accent">
               {post.category}
             </span>
           </div>
           
-          <h3 className="heading-sm mb-2">{post.title}</h3>
+          <h3 className="text-xl font-bold mb-3 line-clamp-2">{post.title}</h3>
           
-          <p className="text-gray-400 mb-4 line-clamp-3">{post.excerpt}</p>
+          <p className="text-gray-300 mb-4 line-clamp-3">
+            {post.excerpt}
+          </p>
           
-          <div className="flex items-center mt-auto">
-            <div className="flex-shrink-0 mr-3">
-              <div className="w-10 h-10 rounded-full overflow-hidden">
+          <div className="mt-auto pt-4 flex justify-between items-end">
+            <div className="flex items-center">
+              <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
                 <img 
                   src={post.author.avatar} 
                   alt={post.author.name} 
                   className="w-full h-full object-cover"
                 />
               </div>
-            </div>
-            <div>
-              <p className="text-sm font-medium">{post.author.name}</p>
-              <p className="text-xs text-gray-400">
-                {new Date(post.date).toLocaleDateString('ru-RU', { 
-                  day: 'numeric', 
-                  month: 'long', 
-                  year: 'numeric' 
-                })}
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-center mt-4 pt-4 border-t border-white/10">
-            <button 
-              onClick={handleLike}
-              className="flex items-center mr-4 text-sm text-gray-400 hover:text-accent transition-colors"
-            >
-              <Heart size={16} className={liked ? 'fill-accent text-accent' : ''} />
-              <span className="ml-1">{likeCount}</span>
-            </button>
-            
-            <div className="flex items-center mr-4 text-sm text-gray-400">
-              <MessageSquare size={16} />
-              <span className="ml-1">{post.comments}</span>
+              <div>
+                <p className="text-sm font-medium">{post.author.name}</p>
+                <div className="flex items-center text-xs text-gray-400">
+                  <Calendar className="mr-1 h-3 w-3" />
+                  {formattedDate}
+                </div>
+              </div>
             </div>
             
-            <button 
-              onClick={handleShare}
-              className="flex items-center text-sm text-gray-400 hover:text-accent transition-colors ml-auto"
-            >
-              <Share2 size={16} />
-            </button>
+            <div className="flex items-center space-x-3 text-gray-400">
+              <div className="flex items-center">
+                <Heart className="h-4 w-4 mr-1" />
+                <span className="text-xs">{post.likes}</span>
+              </div>
+              
+              <div className="flex items-center">
+                <MessageSquare className="h-4 w-4 mr-1" />
+                <span className="text-xs">{post.comments}</span>
+              </div>
+            </div>
           </div>
         </div>
-      </article>
-    </Link>
+      </Link>
+    </div>
   );
 };
