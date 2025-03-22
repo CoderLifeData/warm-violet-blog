@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, MessageSquare, Share2 } from 'lucide-react';
 import { Post } from '../../data/posts';
+import { useToast } from "../../hooks/use-toast";
 
 interface PostCardProps {
   post: Post;
@@ -11,18 +12,31 @@ interface PostCardProps {
 export const PostCard = ({ post }: PostCardProps) => {
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likes);
+  const { toast } = useToast();
   
   const handleLike = (e: React.MouseEvent) => {
     e.preventDefault();
     setLiked(!liked);
     setLikeCount(prev => liked ? prev - 1 : prev + 1);
+    
+    // In a real app, this would be an API call to update likes in the database
+    toast({
+      title: liked ? "Лайк отменен" : "Вы поставили лайк!",
+      description: liked ? "Вы отменили лайк статьи" : "Спасибо за вашу оценку!",
+      duration: 2000,
+    });
   };
   
   const handleShare = (e: React.MouseEvent) => {
     e.preventDefault();
     // Implementation would depend on sharing functionality
     navigator.clipboard.writeText(window.location.origin + '/blog/' + post.id);
-    alert('Ссылка скопирована в буфер обмена!');
+    
+    toast({
+      title: "Ссылка скопирована",
+      description: "Ссылка на статью скопирована в буфер обмена",
+      duration: 2000,
+    });
   };
   
   return (

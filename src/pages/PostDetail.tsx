@@ -4,12 +4,21 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { PostCard } from '../components/ui/PostCard';
-import { Heart, MessageSquare, Share2, ArrowLeft, Calendar, ChevronRight } from 'lucide-react';
+import { Heart, MessageSquare, Share2, ArrowLeft, Calendar, ChevronRight, User } from 'lucide-react';
 import { getPostById, getRelatedPosts, Post } from '../data/posts';
+import { useToast } from '../hooks/use-toast';
+
+interface Comment {
+  id: string;
+  author: string;
+  content: string;
+  date: Date;
+}
 
 const PostDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   
   const [post, setPost] = useState<Post | null>(null);
   const [relatedPosts, setRelatedPosts] = useState<Post[]>([]);
@@ -17,6 +26,8 @@ const PostDetail = () => {
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [commentText, setCommentText] = useState('');
+  const [authorName, setAuthorName] = useState('');
+  const [comments, setComments] = useState<Comment[]>([]);
   
   useEffect(() => {
     // Scroll to top when post changes
@@ -40,6 +51,25 @@ const PostDetail = () => {
         // Get related posts
         const related = getRelatedPosts(id, foundPost.category);
         setRelatedPosts(related);
+        
+        // Load comments from localStorage or use empty array
+        const savedComments = localStorage.getItem(`post_${id}_comments`);
+        if (savedComments) {
+          try {
+            const parsedComments = JSON.parse(savedComments);
+            setComments(parsedComments.map((comment: any) => ({
+              ...comment,
+              date: new Date(comment.date)
+            })));
+          } catch (error) {
+            console.error('Error parsing comments:', error);
+            setComments([]);
+          }
+        }
+        
+        // Check if post was liked before
+        const wasLiked = localStorage.getItem(`post_${id}_liked`) === 'true';
+        setLiked(wasLiked);
       } else {
         navigate('/blog');
       }
@@ -51,23 +81,73 @@ const PostDetail = () => {
   }, [id, navigate]);
   
   const handleLike = () => {
-    setLiked(!liked);
-    setLikeCount(prev => liked ? prev - 1 : prev + 1);
+    const newLiked = !liked;
+    setLiked(newLiked);
+    setLikeCount(prev => newLiked ? prev + 1 : prev - 1);
+    
+    // Save like state to localStorage
+    localStorage.setItem(`post_${id}_liked`, newLiked.toString());
+    
+    toast({
+      title: newLiked ? "Вы поставили лайк!" : "Лайк отменен",
+      description: newLiked ? "Спасибо за вашу оценку!" : "Вы отменили лайк статьи",
+      duration: 2000,
+    });
   };
   
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
-    alert('Ссылка скопирована в буфер обмена!');
+    
+    toast({
+      title: "Ссылка скопирована",
+      description: "Ссылка на статью скопирована в буфер обмена",
+      duration: 2000,
+    });
   };
   
   const handleSubmitComment = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!commentText.trim()) return;
+    if (!commentText.trim()) {
+      toast({
+        title: "Ошибка",
+        description: "Пожалуйста, введите текст комментария",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    // In a real app, this would send the comment to a backend
-    alert('В этой демо-версии комментарии не сохраняются на сервере.');
+    if (!authorName.trim()) {
+      toast({
+        title: "Ошибка",
+        description: "Пожалуйста, введите ваше имя",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Create new comment
+    const newComment: Comment = {
+      id: `comment-${Date.now()}`,
+      author: authorName,
+      content: commentText,
+      date: new Date()
+    };
+    
+    // Add comment to state
+    const updatedComments = [...comments, newComment];
+    setComments(updatedComments);
+    
+    // Save to localStorage
+    localStorage.setItem(`post_${id}_comments`, JSON.stringify(updatedComments));
+    
+    // Reset form
     setCommentText('');
+    
+    toast({
+      title: "Комментарий добавлен",
+      description: "Ваш комментарий успешно опубликован",
+    });
   };
   
   if (isLoading) {
@@ -203,7 +283,20 @@ const PostDetail = () => {
                 
                 <form onSubmit={handleSubmitComment} className="mb-8">
                   <div className="mb-4">
+                    <label htmlFor="authorName" className="block text-sm font-medium mb-2">Ваше имя</label>
+                    <input
+                      id="authorName"
+                      type="text"
+                      value={authorName}
+                      onChange={(e) => setAuthorName(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg bg-secondary/50 border border-white/10 focus:ring-2 focus:ring-accent/20 focus:border-accent focus:outline-none transition-colors"
+                      placeholder="Введите ваше имя"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label htmlFor="commentText" className="block text-sm font-medium mb-2">Ваш комментарий</label>
                     <textarea
+                      id="commentText"
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
                       className="w-full px-4 py-3 rounded-lg bg-secondary/50 border border-white/10 focus:ring-2 focus:ring-accent/20 focus:border-accent focus:outline-none transition-colors resize-none"
@@ -222,9 +315,36 @@ const PostDetail = () => {
                 </form>
                 
                 <div className="space-y-6">
-                  <div className="text-gray-400 text-center py-4">
-                    <p>В этой демо-версии комментарии не отображаются.</p>
-                  </div>
+                  {comments.length === 0 ? (
+                    <div className="text-gray-400 text-center py-4">
+                      <p>Пока нет комментариев. Будьте первым, кто оставит комментарий!</p>
+                    </div>
+                  ) : (
+                    comments.map((comment) => (
+                      <div key={comment.id} className="p-4 bg-white/5 rounded-lg">
+                        <div className="flex items-center mb-2">
+                          <div className="flex-shrink-0 mr-3">
+                            <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                              <User size={16} className="text-accent" />
+                            </div>
+                          </div>
+                          <div>
+                            <p className="font-medium">{comment.author}</p>
+                            <p className="text-xs text-gray-400">
+                              {comment.date.toLocaleDateString('ru-RU', {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-gray-300 pl-11">{comment.content}</p>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
