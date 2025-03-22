@@ -141,8 +141,53 @@ export default {
 			fontFamily: {
 				sans: ['Inter', 'sans-serif'],
 				heading: ['SF Pro Display', 'Inter', 'sans-serif']
-			}
+			},
+			typography: {
+				DEFAULT: {
+					css: {
+						color: 'hsl(var(--foreground))',
+						a: {
+							color: 'hsl(var(--accent))',
+							'&:hover': {
+								color: 'hsl(var(--accent))',
+								opacity: '0.8'
+							},
+						},
+						h1: {
+							color: 'hsl(var(--foreground))',
+						},
+						h2: {
+							color: 'hsl(var(--foreground))',
+						},
+						h3: {
+							color: 'hsl(var(--foreground))',
+						},
+						h4: {
+							color: 'hsl(var(--foreground))',
+						},
+						blockquote: {
+							color: 'hsl(var(--muted-foreground))',
+							borderColor: 'hsl(var(--border))'
+						},
+						code: {
+							color: 'hsl(var(--foreground))',
+							backgroundColor: 'hsl(var(--muted))',
+							borderRadius: '0.25rem',
+							padding: '0.25rem',
+						},
+						'code::before': {
+							content: '""'
+						},
+						'code::after': {
+							content: '""'
+						}
+					},
+				},
+			},
 		}
 	},
-	plugins: [require("tailwindcss-animate")],
+	plugins: [
+		require("tailwindcss-animate"),
+		require('@tailwindcss/typography')
+	],
 } satisfies Config;

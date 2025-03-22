@@ -229,7 +229,7 @@ export const posts: Post[] = [
       // Пример интеграции микрофронтендов через веб-компоненты
       class ProductList extends HTMLElement {
         connectedCallback() {
-          this.innerHTML = `<div>Список продуктов</div>`;
+          this.innerHTML = \`<div>Список продуктов</div>\`;
           // Загрузка данных, рендеринг списка и т.д.
         }
       }
