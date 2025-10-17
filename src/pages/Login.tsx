@@ -1,9 +1,10 @@
 
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { Eye, EyeOff, Lock, User } from 'lucide-react';
+import { login, isSessionValid } from '../lib/auth';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -19,8 +20,23 @@ const Login = () => {
   
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [inactivityMessage, setInactivityMessage] = useState('');
   
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  useEffect(() => {
+    // Check if user is already logged in
+    if (isSessionValid()) {
+      navigate('/admin');
+      return;
+    }
+    
+    // Check if redirected due to inactivity
+    if (searchParams.get('reason') === 'inactivity') {
+      setInactivityMessage('Ваша сессия истекла из-за неактивности. Пожалуйста, войдите снова.');
+    }
+  }, [navigate, searchParams]);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -67,12 +83,11 @@ const Login = () => {
     
     setIsLoading(true);
     
-    // Simulate authentication (replace with actual auth logic)
+    // Simulate authentication delay
     setTimeout(() => {
-      // Demo credentials for testing
-      if (formData.username === 'admin' && formData.password === 'password') {
-        // Store auth state (this would be a token in a real app)
-        localStorage.setItem('isLoggedIn', 'true');
+      const success = login(formData.username, formData.password);
+      
+      if (success) {
         navigate('/admin');
       } else {
         setErrors(prev => ({
@@ -99,6 +114,12 @@ const Login = () => {
             </div>
             
             <form onSubmit={handleSubmit} className="space-y-6">
+              {inactivityMessage && (
+                <div className="p-3 bg-amber-900/20 border border-amber-900/50 rounded-lg text-amber-500 text-sm">
+                  {inactivityMessage}
+                </div>
+              )}
+              
               {errors.general && (
                 <div className="p-3 bg-red-900/20 border border-red-900/50 rounded-lg text-red-500 text-sm">
                   {errors.general}

@@ -2,77 +2,62 @@
 import { useState, useEffect } from 'react';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
-
-interface Update {
-  id: number;
-  title: string;
-  description: string;
-  date: string;
-  type: 'feature' | 'improvement' | 'fix';
-}
+import { getUpdates, Update } from '../lib/db';
 
 const Updates = () => {
   const [updates, setUpdates] = useState<Update[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
-    // Simulate data loading
-    const timer = setTimeout(() => {
-      setUpdates([
-        {
-          id: 1,
-          title: 'Запуск блога',
-          description: 'Официальный запуск блога с первыми статьями о веб-разработке и дизайне.',
-          date: '2023-10-20',
-          type: 'feature'
-        },
-        {
-          id: 2,
-          title: 'Добавлена функция комментариев',
-          description: 'Теперь вы можете оставлять комментарии к статьям и участвовать в обсуждениях.',
-          date: '2023-10-25',
-          type: 'feature'
-        },
-        {
-          id: 3,
-          title: 'Улучшение дизайна',
-          description: 'Обновлен дизайн блога для лучшего пользовательского опыта и читаемости.',
-          date: '2023-11-05',
-          type: 'improvement'
-        },
-        {
-          id: 4,
-          title: 'Исправление проблем с отображением на мобильных устройствах',
-          description: 'Исправлены проблемы с адаптивным дизайном на различных мобильных устройствах.',
-          date: '2023-11-12',
-          type: 'fix'
-        },
-        {
-          id: 5,
-          title: 'Добавлена функция поиска',
-          description: 'Теперь вы можете искать статьи по ключевым словам и фильтровать их по категориям.',
-          date: '2023-11-18',
-          type: 'feature'
-        },
-        {
-          id: 6,
-          title: 'Оптимизация скорости загрузки',
-          description: 'Улучшена производительность сайта и скорость загрузки страниц.',
-          date: '2023-11-25',
-          type: 'improvement'
-        },
-        {
-          id: 7,
-          title: 'Добавлена темная тема',
-          description: 'Реализована темная тема для более комфортного чтения в вечернее время.',
-          date: '2023-12-05',
-          type: 'feature'
+    // Load updates from database
+    const loadUpdates = async () => {
+      setIsLoading(true);
+      try {
+        const data = await getUpdates();
+        
+        // If no updates in DB, add default ones
+        if (data.length === 0) {
+          const { addUpdate } = await import('../lib/db');
+          const defaultUpdates = [
+            {
+              id: 'update-1',
+              title: 'Запуск блога',
+              description: 'Официальный запуск блога с первыми статьями о веб-разработке и дизайне.',
+              date: '2023-10-20',
+              type: 'feature' as const
+            },
+            {
+              id: 'update-2',
+              title: 'Добавлена функция комментариев',
+              description: 'Теперь вы можете оставлять комментарии к статьям и участвовать в обсуждениях.',
+              date: '2023-10-25',
+              type: 'feature' as const
+            },
+            {
+              id: 'update-3',
+              title: 'Улучшение дизайна',
+              description: 'Обновлен дизайн блога для лучшего пользовательского опыта и читаемости.',
+              date: '2023-11-05',
+              type: 'improvement' as const
+            }
+          ];
+          
+          for (const update of defaultUpdates) {
+            await addUpdate(update);
+          }
+          
+          setUpdates(defaultUpdates);
+        } else {
+          setUpdates(data);
         }
-      ]);
-      setIsLoading(false);
-    }, 500);
+      } catch (error) {
+        console.error('Error loading updates:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    return () => clearTimeout(timer);
+    loadUpdates();
   }, []);
   
   const getUpdateTypeStyles = (type: Update['type']) => {

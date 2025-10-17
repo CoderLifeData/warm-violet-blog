@@ -1,12 +1,14 @@
 
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Settings } from 'lucide-react';
 import { AnimatedLink } from '../ui/AnimatedLink';
+import { isSessionValid } from '../../lib/auth';
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const location = useLocation();
   
   useEffect(() => {
@@ -24,6 +26,8 @@ export const Navbar = () => {
   
   useEffect(() => {
     setIsOpen(false);
+    // Check authentication status
+    setIsLoggedIn(isSessionValid());
   }, [location]);
 
   const navLinks = [
@@ -58,10 +62,17 @@ export const Navbar = () => {
             ))}
             <div className="ml-6">
               <Link 
-                to="/login" 
-                className="px-5 py-2 rounded-full bg-accent hover:bg-accent/90 transition-colors duration-300"
+                to={isLoggedIn ? "/admin" : "/login"}
+                className="inline-flex items-center px-5 py-2 rounded-full bg-accent hover:bg-accent/90 transition-colors duration-300"
               >
-                Войти
+                {isLoggedIn ? (
+                  <>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Панель управления
+                  </>
+                ) : (
+                  'Войти'
+                )}
               </Link>
             </div>
           </div>
@@ -93,10 +104,17 @@ export const Navbar = () => {
             ))}
             <div className="mt-4">
               <Link 
-                to="/login" 
-                className="px-6 py-2.5 rounded-full bg-accent hover:bg-accent/90 transition-colors duration-300 text-lg"
+                to={isLoggedIn ? "/admin" : "/login"}
+                className="inline-flex items-center px-6 py-2.5 rounded-full bg-accent hover:bg-accent/90 transition-colors duration-300 text-lg"
               >
-                Войти
+                {isLoggedIn ? (
+                  <>
+                    <Settings className="mr-2 h-5 w-5" />
+                    Панель управления
+                  </>
+                ) : (
+                  'Войти'
+                )}
               </Link>
             </div>
           </div>

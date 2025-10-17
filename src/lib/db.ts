@@ -2,15 +2,20 @@
 // IndexedDB database service for the blog application
 import { Post, Author } from '../data/posts';
 
+export type { Post } from '../data/posts';
+
 // Database configuration
 const DB_NAME = 'blog_database';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 // Database object stores (tables)
 const POSTS_STORE = 'posts';
 const COMMENTS_STORE = 'comments';
 const LIKES_STORE = 'likes';
 const FEATURED_POSTS_STORE = 'featured_posts';
+const UPDATES_STORE = 'updates';
+const CONTACTS_STORE = 'contacts';
+const SETTINGS_STORE = 'settings';
 
 // Comment interface
 export interface Comment {
@@ -33,6 +38,31 @@ export interface FeaturedPost {
   id: string;
   postId: string;
   order: number;
+}
+
+// Update interface
+export interface Update {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  type: 'feature' | 'improvement' | 'fix';
+}
+
+// Contact interface
+export interface Contact {
+  id: string;
+  name: string;
+  value: string;
+  type: 'email' | 'phone' | 'telegram' | 'whatsapp' | 'other';
+  order: number;
+}
+
+// Settings interface
+export interface Settings {
+  id: string;
+  key: string;
+  value: string;
 }
 
 // Open the database connection
@@ -76,6 +106,23 @@ const openDB = (): Promise<IDBDatabase> => {
       if (!db.objectStoreNames.contains(FEATURED_POSTS_STORE)) {
         const featuredStore = db.createObjectStore(FEATURED_POSTS_STORE, { keyPath: 'id' });
         featuredStore.createIndex('order', 'order', { unique: false });
+      }
+      
+      // Create updates store if it doesn't exist
+      if (!db.objectStoreNames.contains(UPDATES_STORE)) {
+        const updatesStore = db.createObjectStore(UPDATES_STORE, { keyPath: 'id' });
+        updatesStore.createIndex('date', 'date', { unique: false });
+      }
+      
+      // Create contacts store if it doesn't exist
+      if (!db.objectStoreNames.contains(CONTACTS_STORE)) {
+        const contactsStore = db.createObjectStore(CONTACTS_STORE, { keyPath: 'id' });
+        contactsStore.createIndex('order', 'order', { unique: false });
+      }
+      
+      // Create settings store if it doesn't exist
+      if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
+        db.createObjectStore(SETTINGS_STORE, { keyPath: 'id' });
       }
     };
   });
@@ -687,5 +734,194 @@ export const getRelatedPosts = async (currentPostId: string, category: string): 
   } catch (error) {
     console.error(`Error getting related posts for ${currentPostId}:`, error);
     return [];
+  }
+};
+
+// Updates CRUD operations
+export const getUpdates = async (): Promise<Update[]> => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(UPDATES_STORE, 'readonly');
+    const store = tx.objectStore(UPDATES_STORE);
+    const updates = await new Promise<Update[]>((resolve) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+    });
+    
+    // Sort by date (newest first)
+    updates.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    db.close();
+    return updates;
+  } catch (error) {
+    console.error('Error getting updates:', error);
+    return [];
+  }
+};
+
+export const addUpdate = async (update: Update): Promise<boolean> => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(UPDATES_STORE, 'readwrite');
+    const store = tx.objectStore(UPDATES_STORE);
+    store.add(update);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(new Error('Failed to add update'));
+    });
+    db.close();
+    return true;
+  } catch (error) {
+    console.error('Error adding update:', error);
+    return false;
+  }
+};
+
+export const updateUpdate = async (update: Update): Promise<boolean> => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(UPDATES_STORE, 'readwrite');
+    const store = tx.objectStore(UPDATES_STORE);
+    store.put(update);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(new Error('Failed to update update'));
+    });
+    db.close();
+    return true;
+  } catch (error) {
+    console.error('Error updating update:', error);
+    return false;
+  }
+};
+
+export const deleteUpdate = async (id: string): Promise<boolean> => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(UPDATES_STORE, 'readwrite');
+    const store = tx.objectStore(UPDATES_STORE);
+    store.delete(id);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(new Error('Failed to delete update'));
+    });
+    db.close();
+    return true;
+  } catch (error) {
+    console.error('Error deleting update:', error);
+    return false;
+  }
+};
+
+// Contacts CRUD operations
+export const getContacts = async (): Promise<Contact[]> => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(CONTACTS_STORE, 'readonly');
+    const store = tx.objectStore(CONTACTS_STORE);
+    const contacts = await new Promise<Contact[]>((resolve) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+    });
+    
+    // Sort by order
+    contacts.sort((a, b) => a.order - b.order);
+    
+    db.close();
+    return contacts;
+  } catch (error) {
+    console.error('Error getting contacts:', error);
+    return [];
+  }
+};
+
+export const addContact = async (contact: Contact): Promise<boolean> => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(CONTACTS_STORE, 'readwrite');
+    const store = tx.objectStore(CONTACTS_STORE);
+    store.add(contact);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(new Error('Failed to add contact'));
+    });
+    db.close();
+    return true;
+  } catch (error) {
+    console.error('Error adding contact:', error);
+    return false;
+  }
+};
+
+export const updateContact = async (contact: Contact): Promise<boolean> => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(CONTACTS_STORE, 'readwrite');
+    const store = tx.objectStore(CONTACTS_STORE);
+    store.put(contact);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(new Error('Failed to update contact'));
+    });
+    db.close();
+    return true;
+  } catch (error) {
+    console.error('Error updating contact:', error);
+    return false;
+  }
+};
+
+export const deleteContact = async (id: string): Promise<boolean> => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(CONTACTS_STORE, 'readwrite');
+    const store = tx.objectStore(CONTACTS_STORE);
+    store.delete(id);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(new Error('Failed to delete contact'));
+    });
+    db.close();
+    return true;
+  } catch (error) {
+    console.error('Error deleting contact:', error);
+    return false;
+  }
+};
+
+// Settings operations
+export const getSetting = async (key: string): Promise<string | null> => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(SETTINGS_STORE, 'readonly');
+    const store = tx.objectStore(SETTINGS_STORE);
+    const setting = await new Promise<Settings | undefined>((resolve) => {
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result);
+    });
+    db.close();
+    return setting?.value || null;
+  } catch (error) {
+    console.error(`Error getting setting ${key}:`, error);
+    return null;
+  }
+};
+
+export const setSetting = async (key: string, value: string): Promise<boolean> => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+    const store = tx.objectStore(SETTINGS_STORE);
+    const setting: Settings = { id: key, key, value };
+    store.put(setting);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(new Error('Failed to set setting'));
+    });
+    db.close();
+    return true;
+  } catch (error) {
+    console.error(`Error setting ${key}:`, error);
+    return false;
   }
 };
