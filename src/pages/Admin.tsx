@@ -8,7 +8,7 @@ import {
   FileText, Users, Mail, Save, X as CloseIcon
 } from 'lucide-react';
 import { Post, author } from '../data/posts';
-import { useToast } from '../hooks/use-toast';
+import { toast } from 'sonner';
 import { 
   getPosts, 
   addPost, 
@@ -56,7 +56,6 @@ const Admin = () => {
   const [avatarPreview, setAvatarPreview] = useState<string>('');
   const [profile, setProfile] = useState<Profile>({ adminName: '', githubUrl: '', websiteUrl: '' });
   const [profileForm, setProfileForm] = useState<Profile>({ adminName: '', githubUrl: '', websiteUrl: '' });
-  const { toast } = useToast();
   
   // Post form state
   const [postTitle, setPostTitle] = useState('');
@@ -103,10 +102,8 @@ const Admin = () => {
       setProfileForm(profileData);
     } catch (error) {
       console.error('Error loading data:', error);
-      toast({
-        title: "Ошибка загрузки",
-        description: "Не удалось загрузить данные",
-        variant: "destructive",
+      toast.error("Ошибка загрузки", {
+        description: "Не удалось загрузить данные"
       });
     } finally {
       setIsLoading(false);
@@ -146,20 +143,16 @@ const Admin = () => {
     
     // Validate file type
     if (!['image/jpeg', 'image/png'].includes(file.type)) {
-      toast({
-        title: "Неверный формат",
-        description: "Пожалуйста, загрузите изображение JPG или PNG",
-        variant: "destructive",
+      toast.error("Неверный формат", {
+        description: "Пожалуйста, загрузите изображение JPG или PNG"
       });
       return;
     }
     
     // Validate file size (2MB)
     if (file.size > 2 * 1024 * 1024) {
-      toast({
-        title: "Файл слишком большой",
-        description: "Максимальный размер файла 2MB",
-        variant: "destructive",
+      toast.error("Файл слишком большой", {
+        description: "Максимальный размер файла 2MB"
       });
       return;
     }
@@ -187,16 +180,13 @@ const Admin = () => {
       const updatedPosts = await getPosts();
       setPosts(updatedPosts);
       
-      toast({
-        title: "Аватарка обновлена",
-        description: "Новая аватарка успешно сохранена и применена ко всем постам",
+      toast.success("Аватарка обновлена", {
+        description: "Новая аватарка успешно сохранена и применена ко всем постам"
       });
     } catch (error) {
       console.error('Error saving avatar:', error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось сохранить аватарку",
-        variant: "destructive",
+      toast.error("Ошибка", {
+        description: "Не удалось сохранить аватарку"
       });
     }
   };
@@ -206,10 +196,8 @@ const Admin = () => {
     e.preventDefault();
     
     if (!profileForm.adminName.trim()) {
-      toast({
-        title: "Ошибка",
-        description: "Имя администратора не может быть пустым",
-        variant: "destructive",
+      toast.error("Ошибка", {
+        description: "Имя администратора не может быть пустым"
       });
       return;
     }
@@ -224,19 +212,16 @@ const Admin = () => {
         const updatedPosts = await getPosts();
         setPosts(updatedPosts);
         
-        toast({
-          title: "Профиль обновлен",
-          description: "Данные профиля успешно сохранены и применены ко всем постам",
+        toast.success("Профиль обновлен", {
+          description: "Данные профиля успешно сохранены и применены ко всем постам"
         });
       } else {
         throw new Error('Update failed');
       }
     } catch (error) {
       console.error('Error saving profile:', error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось сохранить профиль",
-        variant: "destructive",
+      toast.error("Ошибка", {
+        description: "Не удалось сохранить профиль"
       });
     }
   };
@@ -256,17 +241,14 @@ const Admin = () => {
             await updateFeaturedPosts(newFeatured);
           }
           
-          toast({
-            title: "Статья удалена",
-            description: "Статья была успешно удалена",
+          toast.success("Статья удалена", {
+            description: "Статья была успешно удалена"
           });
         }
       } catch (error) {
         console.error('Error deleting post:', error);
-        toast({
-          title: "Ошибка",
-          description: "Не удалось удалить статью",
-          variant: "destructive",
+        toast.error("Ошибка", {
+          description: "Не удалось удалить статью"
         });
       }
     }
@@ -276,10 +258,8 @@ const Admin = () => {
     e.preventDefault();
     
     if (!postTitle.trim() || !postExcerpt.trim() || !postContent.trim() || !postCategory.trim()) {
-      toast({
-        title: "Ошибка",
-        description: "Пожалуйста, заполните все обязательные поля",
-        variant: "destructive",
+      toast.error("Ошибка", {
+        description: "Пожалуйста, заполните все обязательные поля"
       });
       return;
     }
@@ -298,9 +278,8 @@ const Admin = () => {
         await updatePost(updatedPost);
         setPosts(posts.map(post => post.id === editingPost.id ? updatedPost : post));
         
-        toast({
-          title: "Статья обновлена",
-          description: "Статья была успешно обновлена",
+        toast.success("Статья обновлена", {
+          description: "Статья была успешно обновлена"
         });
       } else {
         const newPost: Post = {
@@ -319,19 +298,16 @@ const Admin = () => {
         await addPost(newPost);
         setPosts([...posts, newPost]);
         
-        toast({
-          title: "Статья создана",
-          description: "Новая статья была успешно создана",
+        toast.success("Статья создана", {
+          description: "Новая статья была успешно создана"
         });
       }
       
       resetPostForm();
     } catch (error) {
       console.error('Error saving post:', error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось сохранить статью",
-        variant: "destructive",
+      toast.error("Ошибка", {
+        description: "Не удалось сохранить статью"
       });
     }
   };
@@ -351,10 +327,8 @@ const Admin = () => {
     e.preventDefault();
     
     if (!updateTitle.trim() || !updateDescription.trim()) {
-      toast({
-        title: "Ошибка",
-        description: "Пожалуйста, заполните все поля",
-        variant: "destructive",
+      toast.error("Ошибка", {
+        description: "Пожалуйста, заполните все поля"
       });
       return;
     }
@@ -371,9 +345,8 @@ const Admin = () => {
         await updateUpdate(updated);
         setUpdates(updates.map(u => u.id === editingUpdate.id ? updated : u));
         
-        toast({
-          title: "Обновление изменено",
-          description: "Обновление было успешно изменено",
+        toast.success("Обновление изменено", {
+          description: "Обновление было успешно изменено"
         });
       } else {
         const newUpdate: Update = {
@@ -387,19 +360,16 @@ const Admin = () => {
         await addUpdate(newUpdate);
         setUpdates([newUpdate, ...updates]);
         
-        toast({
-          title: "Обновление создано",
-          description: "Новое обновление было успешно создано",
+        toast.success("Обновление создано", {
+          description: "Новое обновление было успешно создано"
         });
       }
       
       resetUpdateForm();
     } catch (error) {
       console.error('Error saving update:', error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось сохранить обновление",
-        variant: "destructive",
+      toast.error("Ошибка", {
+        description: "Не удалось сохранить обновление"
       });
     }
   };
@@ -410,16 +380,13 @@ const Admin = () => {
         await deleteUpdate(id);
         setUpdates(updates.filter(u => u.id !== id));
         
-        toast({
-          title: "Обновление удалено",
-          description: "Обновление было успешно удалено",
+        toast.success("Обновление удалено", {
+          description: "Обновление было успешно удалено"
         });
       } catch (error) {
         console.error('Error deleting update:', error);
-        toast({
-          title: "Ошибка",
-          description: "Не удалось удалить обновление",
-          variant: "destructive",
+        toast.error("Ошибка", {
+          description: "Не удалось удалить обновление"
         });
       }
     }
@@ -438,10 +405,8 @@ const Admin = () => {
     e.preventDefault();
     
     if (!contactName.trim() || !contactValue.trim()) {
-      toast({
-        title: "Ошибка",
-        description: "Пожалуйста, заполните все поля",
-        variant: "destructive",
+      toast.error("Ошибка", {
+        description: "Пожалуйста, заполните все поля"
       });
       return;
     }
@@ -458,9 +423,8 @@ const Admin = () => {
         await updateContact(updated);
         setContacts(contacts.map(c => c.id === editingContact.id ? updated : c));
         
-        toast({
-          title: "Контакт изменен",
-          description: "Контакт был успешно изменен",
+        toast.success("Контакт изменен", {
+          description: "Контакт был успешно изменен"
         });
       } else {
         const newContact: Contact = {
@@ -474,19 +438,16 @@ const Admin = () => {
         await addContact(newContact);
         setContacts([...contacts, newContact]);
         
-        toast({
-          title: "Контакт создан",
-          description: "Новый контакт был успешно создан",
+        toast.success("Контакт создан", {
+          description: "Новый контакт был успешно создан"
         });
       }
       
       resetContactForm();
     } catch (error) {
       console.error('Error saving contact:', error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось сохранить контакт",
-        variant: "destructive",
+      toast.error("Ошибка", {
+        description: "Не удалось сохранить контакт"
       });
     }
   };
@@ -497,16 +458,13 @@ const Admin = () => {
         await deleteContact(id);
         setContacts(contacts.filter(c => c.id !== id));
         
-        toast({
-          title: "Контакт удален",
-          description: "Контакт был успешно удален",
+        toast.success("Контакт удален", {
+          description: "Контакт был успешно удален"
         });
       } catch (error) {
         console.error('Error deleting contact:', error);
-        toast({
-          title: "Ошибка",
-          description: "Не удалось удалить контакт",
-          variant: "destructive",
+        toast.error("Ошибка", {
+          description: "Не удалось удалить контакт"
         });
       }
     }
@@ -531,10 +489,8 @@ const Admin = () => {
       if (newFeatured.length < 3) {
         newFeatured.push(postId);
       } else {
-        toast({
-          title: "Превышено ограничение",
-          description: "Можно выбрать максимум 3 избранные статьи",
-          variant: "destructive",
+        toast.error("Превышено ограничение", {
+          description: "Можно выбрать максимум 3 избранные статьи"
         });
         return;
       }
@@ -547,17 +503,14 @@ const Admin = () => {
     try {
       await updateFeaturedPosts(featuredPostIds);
       
-      toast({
-        title: "Избранные статьи обновлены",
-        description: "Список избранных статей успешно обновлен",
+      toast.success("Избранные статьи обновлены", {
+        description: "Список избранных статей успешно обновлен"
       });
       setIsShowingFeaturedForm(false);
     } catch (error) {
       console.error('Error updating featured posts:', error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось обновить избранные статьи",
-        variant: "destructive",
+      toast.error("Ошибка", {
+        description: "Не удалось обновить избранные статьи"
       });
     }
   };
