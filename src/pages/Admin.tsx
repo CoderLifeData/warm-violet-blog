@@ -26,12 +26,15 @@ import {
   deleteContact,
   getSetting,
   setSetting,
+  getProfile,
+  updateProfile,
   Update,
-  Contact
+  Contact,
+  Profile
 } from '../lib/db';
 import { isSessionValid, logout, initSessionMonitoring, cleanupSessionMonitoring } from '../lib/auth';
 
-type Tab = 'posts' | 'updates' | 'contacts' | 'settings';
+type Tab = 'posts' | 'updates' | 'contacts' | 'profile' | 'settings';
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState<Tab>('posts');
@@ -50,6 +53,8 @@ const Admin = () => {
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [adminAvatar, setAdminAvatar] = useState<string>('');
   const [avatarPreview, setAvatarPreview] = useState<string>('');
+  const [profile, setProfile] = useState<Profile>({ adminName: '', githubUrl: '', websiteUrl: '' });
+  const [profileForm, setProfileForm] = useState<Profile>({ adminName: '', githubUrl: '', websiteUrl: '' });
   const { toast } = useToast();
   
   // Post form state
@@ -78,12 +83,13 @@ const Admin = () => {
   const loadAllData = async () => {
     setIsLoading(true);
     try {
-      const [allPosts, allUpdates, allContacts, featured, avatar] = await Promise.all([
+      const [allPosts, allUpdates, allContacts, featured, avatar, profileData] = await Promise.all([
         getPosts(),
         getUpdates(),
         getContacts(),
         getFeaturedPosts(),
-        getSetting('adminAvatar')
+        getSetting('adminAvatar'),
+        getProfile()
       ]);
       
       setPosts(allPosts);
@@ -92,6 +98,8 @@ const Admin = () => {
       setFeaturedPostIds(featured.map(post => post.id));
       setAdminAvatar(avatar || author.avatar);
       setAvatarPreview(avatar || author.avatar);
+      setProfile(profileData);
+      setProfileForm(profileData);
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
@@ -176,6 +184,28 @@ const Admin = () => {
       toast({
         title: "Ошибка",
         description: "Не удалось сохранить аватарку",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Profile operations
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      await updateProfile(profileForm);
+      setProfile(profileForm);
+      
+      toast({
+        title: "Профиль обновлен",
+        description: "Данные профиля успешно сохранены",
+      });
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось сохранить профиль",
         variant: "destructive",
       });
     }
@@ -589,6 +619,18 @@ const Admin = () => {
               >
                 <Mail className="mr-2 h-5 w-5" />
                 Контакты
+              </button>
+              
+              <button
+                onClick={() => setActiveTab('profile')}
+                className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+                  activeTab === 'profile' 
+                    ? 'bg-accent text-white' 
+                    : 'bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <Users className="mr-2 h-5 w-5" />
+                Профиль
               </button>
               
               <button
@@ -1078,6 +1120,66 @@ const Admin = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </section>
+        )}
+        
+        {activeTab === 'profile' && (
+          <section className="py-8">
+            <div className="layout-container">
+              <h2 className="heading-md mb-6">Профиль администратора</h2>
+              
+              <div className="glass-card rounded-2xl p-6 md:p-10">
+                <form onSubmit={handleSaveProfile}>
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Имя *</label>
+                      <input
+                        type="text"
+                        value={profileForm.adminName}
+                        onChange={(e) => setProfileForm({ ...profileForm, adminName: e.target.value })}
+                        className="w-full px-4 py-3 rounded-lg bg-secondary/50 border border-white/10 focus:ring-2 focus:ring-accent/20 focus:border-accent focus:outline-none transition-colors"
+                        required
+                        placeholder="Иван Иванов"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Ссылка на GitHub *</label>
+                      <input
+                        type="url"
+                        value={profileForm.githubUrl}
+                        onChange={(e) => setProfileForm({ ...profileForm, githubUrl: e.target.value })}
+                        className="w-full px-4 py-3 rounded-lg bg-secondary/50 border border-white/10 focus:ring-2 focus:ring-accent/20 focus:border-accent focus:outline-none transition-colors"
+                        required
+                        placeholder="https://github.com/username"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Ссылка на сайт *</label>
+                      <input
+                        type="url"
+                        value={profileForm.websiteUrl}
+                        onChange={(e) => setProfileForm({ ...profileForm, websiteUrl: e.target.value })}
+                        className="w-full px-4 py-3 rounded-lg bg-secondary/50 border border-white/10 focus:ring-2 focus:ring-accent/20 focus:border-accent focus:outline-none transition-colors"
+                        required
+                        placeholder="https://example.com"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end mt-6">
+                    <button
+                      type="submit"
+                      className="inline-flex items-center px-6 py-3 rounded-lg bg-accent hover:bg-accent/90 transition-colors duration-300"
+                    >
+                      <Save className="mr-2 h-5 w-5" />
+                      Сохранить профиль
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </section>

@@ -65,6 +65,20 @@ export interface Settings {
   value: string;
 }
 
+// Profile interface for admin info
+export interface Profile {
+  adminName: string;
+  githubUrl: string;
+  websiteUrl: string;
+}
+
+// Profile interface for admin info
+export interface Profile {
+  adminName: string;
+  githubUrl: string;
+  websiteUrl: string;
+}
+
 // Open the database connection
 const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -922,6 +936,44 @@ export const setSetting = async (key: string, value: string): Promise<boolean> =
     return true;
   } catch (error) {
     console.error(`Error setting ${key}:`, error);
+    return false;
+  }
+};
+
+// Profile operations
+export const getProfile = async (): Promise<Profile> => {
+  try {
+    const [adminName, githubUrl, websiteUrl] = await Promise.all([
+      getSetting('adminName'),
+      getSetting('githubUrl'),
+      getSetting('websiteUrl')
+    ]);
+    
+    return {
+      adminName: adminName || 'Иван Иванов',
+      githubUrl: githubUrl || 'https://github.com',
+      websiteUrl: websiteUrl || 'https://example.com'
+    };
+  } catch (error) {
+    console.error('Error getting profile:', error);
+    return {
+      adminName: 'Иван Иванов',
+      githubUrl: 'https://github.com',
+      websiteUrl: 'https://example.com'
+    };
+  }
+};
+
+export const updateProfile = async (profile: Profile): Promise<boolean> => {
+  try {
+    await Promise.all([
+      setSetting('adminName', profile.adminName),
+      setSetting('githubUrl', profile.githubUrl),
+      setSetting('websiteUrl', profile.websiteUrl)
+    ]);
+    return true;
+  } catch (error) {
+    console.error('Error updating profile:', error);
     return false;
   }
 };

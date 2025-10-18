@@ -1,9 +1,19 @@
-
 import { Link } from 'react-router-dom';
 import { Github, Mail, Globe } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { getProfile, Profile } from '../../lib/db';
 
 export const Footer = () => {
   const currentYear = new Date().getFullYear();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  
+  useEffect(() => {
+    const loadProfile = async () => {
+      const data = await getProfile();
+      setProfile(data);
+    };
+    loadProfile();
+  }, []);
   
   return (
     <footer className="mt-auto py-12 glass-card">
@@ -21,7 +31,7 @@ export const Footer = () => {
           <div className="flex flex-col items-center md:items-end">
             <div className="flex space-x-4 mb-4">
               <a 
-                href="https://github.com" 
+                href={profile?.githubUrl || 'https://github.com'} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="hover:text-accent transition-colors duration-200"
@@ -30,7 +40,7 @@ export const Footer = () => {
                 <Github size={20} />
               </a>
               <a 
-                href="https://example.com" 
+                href={profile?.websiteUrl || 'https://example.com'} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="hover:text-accent transition-colors duration-200"
