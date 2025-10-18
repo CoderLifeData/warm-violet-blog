@@ -940,6 +940,38 @@ export const setSetting = async (key: string, value: string): Promise<boolean> =
   }
 };
 
+// Helper function to update author info in all posts
+export const updateAllPostsAuthor = async (name: string, avatar: string): Promise<boolean> => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(POSTS_STORE, 'readwrite');
+    const store = tx.objectStore(POSTS_STORE);
+    
+    const posts = await new Promise<Post[]>((resolve) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+    });
+    
+    // Update author info in all posts
+    for (const post of posts) {
+      post.author.name = name;
+      post.author.avatar = avatar;
+      store.put(post);
+    }
+    
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(new Error('Failed to update posts author'));
+    });
+    
+    db.close();
+    return true;
+  } catch (error) {
+    console.error('Error updating posts author:', error);
+    return false;
+  }
+};
+
 // Profile operations
 export const getProfile = async (): Promise<Profile> => {
   try {
@@ -971,6 +1003,14 @@ export const updateProfile = async (profile: Profile): Promise<boolean> => {
       setSetting('githubUrl', profile.githubUrl),
       setSetting('websiteUrl', profile.websiteUrl)
     ]);
+    
+    // Update author info in all posts
+    const avatar = await getSetting('adminAvatar');
+    await updateAllPostsAuthor(
+      profile.adminName || 'Иван Иванов',
+      avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80'
+    );
+    
     return true;
   } catch (error) {
     console.error('Error updating profile:', error);

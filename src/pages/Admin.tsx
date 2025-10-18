@@ -28,6 +28,7 @@ import {
   setSetting,
   getProfile,
   updateProfile,
+  updateAllPostsAuthor,
   Update,
   Contact,
   Profile
@@ -175,9 +176,20 @@ const Admin = () => {
     try {
       await setSetting('adminAvatar', avatarPreview);
       setAdminAvatar(avatarPreview);
+      
+      // Update author avatar in all posts
+      await updateAllPostsAuthor(
+        profile.adminName || 'Иван Иванов',
+        avatarPreview
+      );
+      
+      // Reload posts to show updated author avatar
+      const updatedPosts = await getPosts();
+      setPosts(updatedPosts);
+      
       toast({
         title: "Аватарка обновлена",
-        description: "Новая аватарка успешно сохранена",
+        description: "Новая аватарка успешно сохранена и применена ко всем постам",
       });
     } catch (error) {
       console.error('Error saving avatar:', error);
@@ -193,14 +205,32 @@ const Admin = () => {
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    try {
-      await updateProfile(profileForm);
-      setProfile(profileForm);
-      
+    if (!profileForm.adminName.trim()) {
       toast({
-        title: "Профиль обновлен",
-        description: "Данные профиля успешно сохранены",
+        title: "Ошибка",
+        description: "Имя администратора не может быть пустым",
+        variant: "destructive",
       });
+      return;
+    }
+    
+    try {
+      const success = await updateProfile(profileForm);
+      
+      if (success) {
+        setProfile(profileForm);
+        
+        // Reload posts to show updated author info
+        const updatedPosts = await getPosts();
+        setPosts(updatedPosts);
+        
+        toast({
+          title: "Профиль обновлен",
+          description: "Данные профиля успешно сохранены и применены ко всем постам",
+        });
+      } else {
+        throw new Error('Update failed');
+      }
     } catch (error) {
       console.error('Error saving profile:', error);
       toast({
